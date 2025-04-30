@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+   <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Department of Education Rajasthan - Chatbot</title>
+      <!-- Include Font Awesome for the microphone icon -->
+      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+      <style>
+         body {
+         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+         margin: 0;
+         padding: 0;
+         background-color: #e4f0f7;
+         display: flex;
+         justify-content: center;
+         align-items: center;
+         height: 100vh;
+         }
+         .chat-container {
+         width: 450px;
+         background-color: #ffffff;
+         border-radius: 10px;
+         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+         overflow: hidden;
+         display: flex;
+         flex-direction: column;
+         }
+         .chat-header {
+         background-color: #007bff;
+         padding: 15px;
+         color: white;
+         font-size: 18px;
+         text-align: center;
+         font-weight: bold;
+         }
+         .chat-box {
+         height: 400px;
+         overflow-y: auto;
+         padding: 15px;
+         background-color: #f9f9f9;
+         flex-grow: 1;
+         display: flex;
+         flex-direction: column;
+         }
+         .message {
+         margin-bottom: 15px;
+         max-width: 80%;
+         padding: 10px;
+         border-radius: 15px;
+         display: inline-block;
+         clear: both;
+         font-size: 14px;
+         }
+         .user-message {
+         background-color: #cfe9ff;
+         align-self: flex-end;
+         text-align: right;
+         border-radius: 15px 15px 0 15px;
+         }
+         .bot-message {
+         background-color: #e0e0e0;
+         align-self: flex-start;
+         text-align: left;
+         border-radius: 15px 15px 15px 0;
+         }
+         .bot-loading {
+         background-color: #f0f0f0;
+         color: #888;
+         font-style: italic;
+         text-align: left;
+         }
+         .bottom-container {
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         padding: 15px;
+         background-color: #ffffff;
+         border-top: 1px solid #ddd;
+         gap: 10px;
+         }
+         .input-box {
+         flex-grow: 1; /* Take remaining space */
+         display: flex;
+         }
+         .input-box input {
+         width: 100%; /* Full width of input container */
+         padding: 10px;
+         font-size: 14px;
+         border: 1px solid #ddd;
+         border-radius: 20px;
+         }
+         .button-container {
+         display: flex;
+         gap: 10px; /* Add spacing between buttons */
+         }
+         .button-container button {
+         display: flex;
+         justify-content: center;
+         align-items: center;
+         width: 40px;
+         height: 40px;
+         border: none;
+         border-radius: 50%;
+         background-color: #007bff;
+         color: white;
+         cursor: pointer;
+         font-size: 20px;
+         transition: background-color 0.3s ease;
+         }
+         .button-container button:hover {
+         background-color: #0056b3;
+         }
+         .button-container button:disabled {
+         background-color: #ccc;
+         cursor: not-allowed;
+         }
+         .accessibility-toggle {
+         display: flex;
+         justify-content: center;
+         padding: 10px;
+         background-color: #f1f1f1;
+         border-top: 1px solid #ddd;
+         }
+         .accessibility-toggle label {
+         margin-right: 10px;
+         }
+         .error-message {
+         color: red;
+         font-size: 12px;
+         margin-top: 10px;
+         }
+         #stop-audio-btn {
+         background-color: #dc3545;
+         color: white;
+         padding: 10px;
+         border: none;
+         border-radius: 5px;
+         cursor: pointer;
+         font-size: 14px;
+         justify-content: center; /* Center horizontally */
+         align-items: center; /* Center vertically */
+         }
+         #stop-audio-btn:hover {
+         background-color: #c82333;
+         }
+      </style>
+   </head>
+   <body>
+      <div class="chat-container">
+         <div class="chat-header">Department of Education Rajasthan</div>
+         <div class="chat-box" id="chat-box" role="region" aria-live="polite"></div>
+         <!-- Accessibility Toggle for Audio Responses -->
+         <div class="accessibility-toggle">
+            <label for="audio-response-toggle">Request Audio Response</label>
+            <input type="checkbox" id="audio-response-toggle">
+         </div>
+         <!-- Bottom Container -->
+         <div class="bottom-container">
+            <!-- Input Box -->
+            <div class="input-box">
+               <input type="text" id="message-input" placeholder="Type your message" aria-label="Type your message" />
+            </div>
+            <!-- Button Container -->
+            <div class="button-container">
+               <button id="send-text-btn" aria-label="Send message">
+                  <span class="material-icons">send</span> <!-- Send Icon -->
+               </button>
+               <button id="stop-audio-btn" style="display: none;" aria-label="Stop audio">
+               <span style="text-align: center;">Stop Audio</span>
+               </button>
+               <button id="record-btn" aria-label="Start/Stop recording">
+                  <span class="material-icons" id="record-icon">mic</span> <!-- Microphone Icon -->
+               </button>
+            </div>
+         </div>
+         <div class="error-message" id="error-message"></div>
+      </div>
+      <!-- Include Material Icons for the icons -->
+      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+      <!-- Include Material Icons for the icons -->
+      <script>
+         let isRecording = false;
+         let mediaRecorder;
+         let audioChunks = [];
+         let currentAudioBlob;
+         const MAX_TEXT_LENGTH = 500;
+         const MAX_AUDIO_DURATION = 10; // seconds
+
+         const chatBox = document.getElementById("chat-box");
+         const messageInput = document.getElementById("message-input");
+         const sendTextBtn = document.getElementById("send-text-btn");
+         const stopAudioBtn = document.getElementById("stop-audio-btn")
+         const recordBtn = document.getElementById("record-btn");
+         const audioResponseToggle = document.getElementById("audio-response-toggle");
+         const errorMessage = document.getElementById("error-message");
+         const recordIcon = document.getElementById("record-icon");
+          let audio = null;
+
+          // Function to stop audio
+         function stopAudio() {
+         if (audio) {
+             audio.pause();
+             audio.currentTime = 0; // Reset playback position
+             audio = null; // Clear the audio instance
+         }
+
+         // Hide stop button
+         stopAudioBtn.style.display = "none";
+         }
+
+         stopAudioBtn.addEventListener("click", () => {
+         stopAudio();
+         })
+         sendTextBtn.addEventListener("click", async () => {
+         const message = messageInput.value.trim();
+         console.log(message);
+         // Text validation: Check for max length
+         if (message.length > MAX_TEXT_LENGTH) {
+             errorMessage.textContent = `Message exceeds ${MAX_TEXT_LENGTH} characters.`;
+             return;
+         }
+
+         errorMessage.textContent = ''; // Clear any previous error
+
+         appendMessage("User", message, true);
+         messageInput.value = '';
+
+         // Show loading indicator
+         const loadingMessage = appendLoadingMessage();
+
+         try {
+             const response = await fetch("/chat", {
+                 method: "POST",
+                 headers: {
+                     "Content-Type": "application/json"
+                 },
+                 body: JSON.stringify({ message, audio_response: audioResponseToggle.checked })
+             });
+
+             const data = await response.json();
+             chatBox.removeChild(loadingMessage); // Remove loading indicator
+
+
+             appendMessage("Bot", data.response_html, false);
+             // If audio response is requested, play the audio
+             if (data.audio_url) {
+                 if(audio) {
+
+                 }
+                 audio = new Audio(data.audio_url);
+                 audio.play();
+                 stopAudioBtn.style.display = "flex";
+                 audio.addEventListener("ended", () => {
+                     stopAudio();
+                 });
+             }
+         } catch (error) {
+             chatBox.removeChild(loadingMessage);
+             appendMessage("Bot", "Sorry, something went wrong. Please try again.", false);
+         }
+         });
+
+
+
+         recordBtn.addEventListener("click", async () => {
+
+             if (isRecording) {
+                 mediaRecorder.stop();
+                 recordIcon.textContent = "stop";
+             } else {
+                 startRecording();
+             }
+             isRecording = !isRecording;
+             if (isRecording) {
+                 recordIcon.textContent = "stop";
+             }
+         });
+
+         async function startRecording() {
+         // Check if the browser supports getUserMedia
+         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+             alert("Your browser does not support microphone access.");
+             return;
+         }
+
+         try {
+             // Request microphone permission
+             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+             mediaRecorder = new MediaRecorder(stream);
+             audioChunks = []; // Reset audio chunks
+
+             mediaRecorder.ondataavailable = event => {
+                 audioChunks.push(event.data);
+             };
+
+             mediaRecorder.onstop = async () => {
+                 const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+                 currentAudioBlob = audioBlob; // Store the recorded audio blob
+
+                 // Audio duration validation
+                 const audioDuration = audioBlob.size / (1024 * 8 * 16000); // Approximate size-based duration in seconds (16kHz, 8 bits)
+                 if (audioDuration > MAX_AUDIO_DURATION) {
+                     errorMessage.textContent = `Audio duration exceeds ${MAX_AUDIO_DURATION} seconds.`;
+                     return;
+                 }
+
+                 errorMessage.textContent = ''; // Clear any previous error
+
+                 // Append the audio to the chat history with WaveSurfer.js
+                 const audioURL = URL.createObjectURL(audioBlob);
+                 appendAudioMessage("User", audioURL);
+
+                 // Send the audio to the server
+                 const formData = new FormData();
+                 formData.append("file", new File([audioBlob], "audio.wav"));
+                 formData.append("audio_response", audioResponseToggle.checked);
+                 try {
+                     document.getElementById("record-btn").disabled = true;
+                     const response = await fetch("/upload-audio", {
+                         method: "POST",
+                         body: formData
+                     });
+
+                     const data = await response.json();
+                      recordIcon.textContent = "mic";
+                      document.getElementById("record-btn").disabled = false;
+                     appendMessage("Bot", data.response_html, false);
+                     if (data.audio_url) {
+                          audio = new Audio(data.audio_url);
+                         audio.play();
+                         stopAudioBtn.style.display = "flex";
+
+                         // Handle audio end event
+                         audio.addEventListener("ended", () => {
+                             stopAudio();
+                         });
+                     }
+                 } catch (error) {
+                     console.log(error);
+                      document.getElementById("record-btn").disabled = false;
+                     appendMessage("Bot", "Sorry, something went wrong while processing the audio. Please try again.", false);
+                 }
+             };
+
+             mediaRecorder.start();
+         } catch (err) {
+             if (err.name === "NotAllowedError") {
+                 errorMessage.textContent = "Microphone access denied. Please allow microphone access to record audio.";
+             } else {
+                 errorMessage.textContent = "An error occurred while trying to access the microphone: " + err.message;
+             }
+         }
+         }
+
+         function appendMessage(sender, message, isUserMessage) {
+             const messageDiv = document.createElement("div");
+             messageDiv.classList.add("message");
+             messageDiv.classList.add(isUserMessage ? "user-message" : "bot-message");
+             messageDiv.innerHTML = message;
+
+             chatBox.appendChild(messageDiv);
+             chatBox.scrollTop = chatBox.scrollHeight;  // Scroll to bottom
+         }
+
+         function appendLoadingMessage() {
+             const messageDiv = document.createElement("div");
+             messageDiv.classList.add("message");
+             messageDiv.classList.add("bot-message", "bot-loading");
+             messageDiv.innerHTML = "Loading...";
+
+             chatBox.appendChild(messageDiv);
+             chatBox.scrollTop = chatBox.scrollHeight;  // Scroll to bottom
+             return messageDiv;
+         }
+
+         function appendAudioMessage(sender, audioURL) {
+             const messageDiv = document.createElement("div");
+             messageDiv.classList.add("message");
+             messageDiv.classList.add(sender === "User" ? "user-message" : "bot-message");
+
+             const audioElement = document.createElement("audio");
+             audioElement.controls = true;
+             audioElement.src = audioURL;
+
+             messageDiv.appendChild(audioElement);
+
+             chatBox.appendChild(messageDiv);
+             chatBox.scrollTop = chatBox.scrollHeight; // Scroll to bottom
+         }
+      </script>
+   </body>
+</html>
